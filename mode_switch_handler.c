@@ -330,7 +330,8 @@ LOG_MODULE_REGISTER(MODULE, LOG_LEVEL_DBG);
 
 /* Hold-time before committing a disconnect → GAMEPAD transition. */
 #define RX_PIN_DEBOUNCE_DELAY_MS 200
-/* TODO: add a constant for the connect → MOUSE hold-time (see README). */
+/* Hold-time before committing a connect → MOUSE transition. */
+#define RX_PIN_CONNECT_DELAY_MS  500
 
 static struct k_work_delayable post_rx_isr_work;
 
@@ -392,24 +393,12 @@ static void post_rx_isr_handler(struct k_work *work)
  */
 static void rx_isr_handler(void)
 {
-    int pin = pogo_pin_read();
+    g_edge_pin = pogo_pin_read();
 
-    /* BUG 1 + BUG 3: blocking sleep and unsafe printf in ISR context */
-    printf("[ISR] pin changed to %d — sleeping 200ms\n", pin);
-    usleep(200000);
+    int hold_ms = (g_edge_pin == 1) ? RX_PIN_CONNECT_DELAY_MS
+                                    : RX_PIN_DEBOUNCE_DELAY_MS;
 
-    /* BUG 2: no re-check of pin state, no atomic gate, no hysteresis */
-    if (pin == 1) switch_to_mouse_mode();
-    else          switch_to_gamepad_mode();
-
-    /* TODO: replace the above block.
-     * The ISR must:
-     *   1. capture the latest pin state into g_edge_pin
-     *   2. choose the hold-time for that transition direction
-     *   3. schedule or reschedule the work so the debounce timer
-     *      restarts on every edge (see README, deliverable 1)
-     * Then implement post_rx_isr_handler above.
-     */
+    k_work_reschedule(&post_rx_isr_work, K_MSEC(hold_ms));
 }
 
 
