@@ -365,8 +365,12 @@ static int g_edge_pin = 0;
  */
 static void post_rx_isr_handler(struct k_work *work)
 {
-    /* TODO: implement me */
     (void)work;
+
+    register_activity();
+
+    if (pogo_pin_read() == 1) switch_to_mouse_mode();
+    else                      switch_to_gamepad_mode();
 }
 
 /*
